@@ -4,8 +4,8 @@ import os
 
 
 class EmbeddingConfig:
-    model: str = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-    dimension: int = 384
+    model: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
+    dimension: int = 512
 
 
 class LlmConfig:

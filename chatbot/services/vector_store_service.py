@@ -112,3 +112,5 @@ def _ensure_init():
     c = _get_client()
     if not c.has_collection(cfg.collection_name):
         ensure_collection()
+    else:
+        c.load_collection(cfg.collection_name)
