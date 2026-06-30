@@ -1,0 +1,10 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+httpx==0.25.2
+pydantic==2.5.2
+aiosqlite==0.19.0
+pyyaml==6.0.1
+sentence-transformers==2.7.0
+pymilvus>=2.5
+milvus-lite
+marshmallow>=3,<4

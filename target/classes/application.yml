@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: erp-customer
+  profiles:
+    active: dev
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8090
+
+# Embedding (Python 本地服务)
+embedding:
+  base-url: http://localhost:8092
+  model: all-MiniLM-L6-v2
+  dimension: 384
+
+# LLM Chat API (DeepSeek / OpenAI-compatible)
+llm:
+  base-url: https://api.deepseek.com/v1
+  api-key: sk-471291da15e0466597b0161d8825b62b      # 替换为你的 DeepSeek Key
+  chat-model: deepseek-chat
+  temperature: 0.3
+  max-tokens: 2048
+  chat-timeout-seconds: 60
+
+# Milvus config
+milvus:
+  host: localhost
+  port: 19530
+  collection-name: erp_knowledge_base
+
+# Vector store config
+vectorstore:
+  chunk-size: 512
+  chunk-overlap: 64
+  top-k: 5
+  similarity-threshold: 0.7
+
+# ERP integration (reserved)
+erp:
+  base-url: http://localhost:8181/BeautyNew
+  connect-timeout-seconds: 10
+  read-timeout-seconds: 30

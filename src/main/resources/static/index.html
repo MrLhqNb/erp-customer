@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP 知识库管理</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:#f0f2f5;min-height:100vh}
+.header{background:#1a1a2e;color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:20px}
+.tabs{display:flex;gap:4px}
+.tab-btn{background:rgba(255,255,255,0.1);color:#ccc;border:none;padding:8px 20px;border-radius:6px 6px 0 0;cursor:pointer;font-size:14px}
+.tab-btn.active{background:#fff;color:#1a1a2e;font-weight:bold}
+.container{max-width:1400px;margin:0 auto;padding:24px}
+.toolbar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.toolbar input,.toolbar select,.toolbar button{padding:8px 14px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px}
+.toolbar button{background:#1890ff;color:#fff;border:none;cursor:pointer;font-weight:500}
+.toolbar button:hover{background:#1677cc}
+.toolbar button.danger{background:#ff4d4f}
+.toolbar button.danger:hover{background:#e04345}
+.toolbar button.default{background:#fff;color:#333;border:1px solid #d9d9d9}
+.toolbar input{width:200px}
+.toolbar select{width:140px}
+table{width:100%;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-collapse:collapse}
+th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #f0f0f0;font-size:14px}
+th{background:#fafafa;color:#666;font-weight:600}
+tr:hover{background:#fafafa}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px}
+.tag-active{background:#e6f7ff;color:#1890ff}
+.tag-draft{background:#fff7e6;color:#fa8c16}
+.tag-inactive{background:#f5f5f5;color:#999}
+.actions button{margin-right:6px;padding:4px 10px;font-size:13px;border-radius:4px;border:1px solid #d9d9d9;background:#fff;cursor:pointer}
+.actions button.primary{background:#1890ff;color:#fff;border-color:#1890ff}
+.pagination{margin-top:16px;display:flex;gap:8px;justify-content:center;align-items:center}
+.pagination button{padding:6px 14px;border:1px solid #d9d9d9;background:#fff;border-radius:4px;cursor:pointer}
+.pagination span{font-size:14px;color:#666}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:100;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:8px;padding:24px;width:600px;max-width:90vw;max-height:85vh;overflow-y:auto}
+.modal h2{margin-bottom:16px;font-size:18px}
+.modal .field{margin-bottom:14px}
+.modal label{display:block;margin-bottom:4px;font-size:14px;color:#333;font-weight:500}
+.modal input,.modal select,.modal textarea{width:100%;padding:8px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px}
+.modal textarea{height:160px;resize:vertical;font-family:inherit}
+.modal .btns{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.modal .btns button{padding:8px 20px;border-radius:6px;font-size:14px;border:none;cursor:pointer}
+.modal .btns .submit{background:#1890ff;color:#fff}
+.modal .btns .cancel{background:#f5f5f5;color:#333}
+#batchImportTextarea{height:250px;font-family:monospace;font-size:13px}
+.hint{font-size:12px;color:#999;margin-top:4px}
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:6px;color:#fff;font-size:14px;z-index:200;display:none}
+.toast.success{background:#52c41a}
+.toast.error{background:#ff4d4f}
+#chatFrame{width:100%;height:calc(100vh - 160px);border:none;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>ERP AI 客服 - 知识库管理</h1>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('knowledge')">知识库管理</button>
+    <button class="tab-btn" onclick="switchTab('vectordb')">向量数据</button>
+    <button class="tab-btn" onclick="switchTab('chat')">智能对话</button>
+  </div>
+</div>
+
+<div class="container">
+  <!-- 知识库管理 -->
+  <div id="knowledgeTab">
+    <div class="toolbar">
+      <input type="text" id="searchInput" placeholder="搜索标题 / 标签..." onkeyup="if(event.key==='Enter')search()">
+      <select id="categoryFilter" onchange="search()">
+        <option value="">全部分类</option>
+        <option value="FAQ">FAQ</option>
+        <option value="PRODUCT_INFO">产品信息</option>
+        <option value="POLICY">政策</option>
+        <option value="PROCEDURE">流程</option>
+        <option value="GENERAL">通用</option>
+      </select>
+      <select id="statusFilter" onchange="search()">
+        <option value="">全部状态</option>
+        <option value="ACTIVE">已激活</option>
+        <option value="DRAFT">草稿</option>
+        <option value="INACTIVE">已停用</option>
+      </select>
+      <button onclick="search()">搜索</button>
+      <button onclick="openAddModal()">+ 新增知识</button>
+      <button class="default" onclick="openBatchImportModal()">批量导入</button>
+      <button class="danger" onclick="reEmbedAll()">重新向量化全部</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>标题</th><th>分类</th><th>标签</th><th>状态</th><th>分块数</th><th>更新时间</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <!-- 向量数据 -->
+  <div id="vectordbTab" style="display:none">
+    <div class="toolbar">
+      <button onclick="loadVectorData()">刷新</button>
+      <span style="font-size:13px;color:#888;margin-left:8px">直接查询 ChromaDB 中的数据</span>
+    </div>
+    <table>
+      <thead><tr><th>Chunk ID</th><th>知识ID</th><th>标题</th><th>分块</th><th>文本内容</th></tr></thead>
+      <tbody id="vectorBody"></tbody>
+    </table>
+  </div>
+
+  <!-- 智能对话 -->
+  <div id="chatTab" style="display:none">
+    <iframe id="chatFrame" src="http://localhost:8092"></iframe>
+  </div>
+</div>
+
+<!-- 新增/编辑弹窗 -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h2 id="editModalTitle">新增知识</h2>
+    <div class="field"><label>标题 *</label><input id="editTitle" maxlength="500"></div>
+    <div class="field"><label>内容 *</label><textarea id="editContent"></textarea></div>
+    <div class="field"><label>分类</label><select id="editCategory">
+      <option value="FAQ">FAQ</option><option value="PRODUCT_INFO">产品信息</option>
+      <option value="POLICY">政策</option><option value="PROCEDURE">流程</option><option value="GENERAL">通用</option>
+    </select></div>
+    <div class="field"><label>标签 (逗号分隔)</label><input id="editTags" placeholder="订单,查询,状态"></div>
+    <div class="field"><label>状态</label><select id="editStatus">
+      <option value="ACTIVE">已激活 (ACTIVE)</option><option value="DRAFT">草稿 (DRAFT)</option><option value="INACTIVE">已停用 (INACTIVE)</option>
+    </select></div>
+    <input type="hidden" id="editId">
+    <div class="btns">
+      <button class="cancel" onclick="closeEditModal()">取消</button>
+      <button class="submit" onclick="saveKnowledge()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 批量导入弹窗 -->
+<div class="modal-overlay" id="batchModal">
+  <div class="modal">
+    <h2>批量导入 JSON</h2>
+    <div class="field">
+      <textarea id="batchImportTextarea" placeholder='[
+  {"title":"问题标题","content":"详细内容","category":"FAQ","status":"ACTIVE"},
+  {"title":"...","content":"...","category":"POLICY","status":"DRAFT"}
+]'></textarea>
+      <div class="hint">每行一个 JSON 对象，category 可选: FAQ/PRODUCT_INFO/POLICY/PROCEDURE/GENERAL，status 可选: ACTIVE/DRAFT/INACTIVE</div>
+    </div>
+    <div class="btns">
+      <button class="cancel" onclick="closeBatchModal()">取消</button>
+      <button class="submit" onclick="doBatchImport()">导入</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API='/api/knowledge';
+let page=0,size=15;
+
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('knowledgeTab').style.display=tab==='knowledge'?'block':'none';
+  document.getElementById('vectordbTab').style.display=tab==='vectordb'?'block':'none';
+  document.getElementById('chatTab').style.display=tab==='chat'?'block':'none';
+  if(tab==='vectordb')loadVectorData();
+}
+
+function toast(msg,type='success'){
+  let t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast '+type;t.style.display='block';
+  setTimeout(()=>t.style.display='none',3000);
+}
+
+async function api(method,url,body){
+  let opts={method,headers:{'Content-Type':'application/json'}};
+  if(body)opts.body=JSON.stringify(body);
+  let resp=await fetch(url,opts);
+  let data=await resp.json();
+  if(data.code!==0) throw new Error(data.message||'unknown error');
+  return data.data;
+}
+
+async function search(){
+  let params=new URLSearchParams({page,size});
+  let kw=document.getElementById('searchInput').value.trim();
+  let cat=document.getElementById('categoryFilter').value;
+  let st=document.getElementById('statusFilter').value;
+  if(kw)params.set('keyword',kw);
+  if(cat)params.set('category',cat);
+  if(st)params.set('status',st);
+  let data=await api('GET',API+'?'+params.toString());
+  renderTable(data);
+  renderPagination(data);
+}
+
+function renderTable(data){
+  let tbody=document.getElementById('tableBody');
+  if(!data.items||data.items.length===0){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#999;padding:32px">暂无数据</td></tr>';
+    return;
+  }
+  tbody.innerHTML=data.items.map(e=>{
+    let tagClass=e.status==='ACTIVE'?'tag-active':e.status==='DRAFT'?'tag-draft':'tag-inactive';
+    let cateName={'FAQ':'FAQ','PRODUCT_INFO':'产品','POLICY':'政策','PROCEDURE':'流程','GENERAL':'通用'}[e.category]||e.category||'-';
+    return `<tr>
+      <td>${e.id}</td>
+      <td><strong>${esc(e.title)}</strong></td>
+      <td>${cateName}</td>
+      <td>${esc(e.tags||'-')}</td>
+      <td><span class="tag ${tagClass}">${e.status}</span></td>
+      <td>${e.chunkCount||0}</td>
+      <td>${e.updatedAt?e.updatedAt.substr(0,16):'-'}</td>
+      <td class="actions">
+        <button onclick="openEditModal(${e.id})">编辑</button>
+        <button onclick="reEmbed(${e.id})">重新向量化</button>
+        <button class="primary" onclick="del(${e.id})">删除</button>
+      </td></tr>`;
+  }).join('');
+}
+
+function renderPagination(data){
+  let totalPages=data.totalPages||1;
+  let html=`<button ${page<=0?'disabled':''} onclick="goPage(${page-1})">上一页</button>`;
+  html+=`<span>第 ${page+1} / ${totalPages} 页 (共 ${data.totalElements} 条)</span>`;
+  html+=`<button ${page+1>=totalPages?'disabled':''} onclick="goPage(${page+1})">下一页</button>`;
+  document.getElementById('pagination').innerHTML=html;
+}
+
+function goPage(p){page=p;search()}
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+
+async function openEditModal(id){
+  document.getElementById('editId').value='';
+  document.getElementById('editModalTitle').textContent='新增知识';
+  document.getElementById('editTitle').value='';
+  document.getElementById('editContent').value='';
+  document.getElementById('editCategory').value='FAQ';
+  document.getElementById('editTags').value='';
+  document.getElementById('editStatus').value='ACTIVE';
+  if(id){
+    document.getElementById('editModalTitle').textContent='编辑知识';
+    let e=await api('GET',API+'/'+id+'/detail');
+    document.getElementById('editId').value=e.id;
+    document.getElementById('editTitle').value=e.title||'';
+    document.getElementById('editContent').value=e.content||'';
+    document.getElementById('editCategory').value=e.category||'FAQ';
+    document.getElementById('editTags').value=e.tags||'';
+    document.getElementById('editStatus').value=e.status||'ACTIVE';
+  }
+  document.getElementById('editModal').classList.add('show');
+}
+
+function openAddModal(){openEditModal()}
+function closeEditModal(){document.getElementById('editModal').classList.remove('show')}
+
+async function saveKnowledge(){
+  let id=document.getElementById('editId').value;
+  let body={
+    title:document.getElementById('editTitle').value.trim(),
+    content:document.getElementById('editContent').value.trim(),
+    category:document.getElementById('editCategory').value,
+    tags:document.getElementById('editTags').value.trim(),
+    status:document.getElementById('editStatus').value
+  };
+  if(!body.title||!body.content){toast('标题和内容不能为空','error');return}
+  try{
+    if(id){
+      await api('PUT',API+'/'+id,body);
+      toast('修改成功');
+    }else{
+      await api('POST',API,body);
+      toast('新增成功');
+    }
+    closeEditModal();search();
+  }catch(e){toast('保存失败: '+e.message,'error')}
+}
+
+async function del(id){
+  if(!confirm('确认删除该知识条目？'))return;
+  try{await api('DELETE',API+'/'+id);toast('删除成功');search()}
+  catch(e){toast('删除失败: '+e.message,'error')}
+}
+
+async function reEmbed(id){
+  try{await api('POST',API+'/'+id+'/re-embed');toast('重新向量化成功');search()}
+  catch(e){toast('向量化失败: '+e.message,'error')}
+}
+
+async function reEmbedAll(){
+  if(!confirm('确认重新向量化所有已激活的知识？这将调用 Embedding API。'))return;
+  try{
+    let r=await api('POST',API+'/re-embed-all');
+    toast(`完成: ${r.successCount} 成功 / ${r.failCount} 失败`);
+  }catch(e){toast('失败: '+e.message,'error')}
+}
+
+function openBatchImportModal(){
+  document.getElementById('batchModal').classList.add('show');
+}
+function closeBatchModal(){document.getElementById('batchModal').classList.remove('show')}
+
+async function doBatchImport(){
+  let text=document.getElementById('batchImportTextarea').value.trim();
+  if(!text){toast('请输入 JSON 数据','error');return}
+  let items;
+  try{items=JSON.parse(text)}catch(e){toast('JSON 格式错误: '+e.message,'error');return}
+  if(!Array.isArray(items)){toast('必须是 JSON 数组','error');return}
+  try{
+    let r=await api('POST',API+'/batch-import',{items});
+    toast(`导入完成: ${r.successCount} 成功 / ${r.failCount} 失败`);
+    closeBatchModal();search();
+  }catch(e){toast('导入失败: '+e.message,'error')}
+}
+
+search();
+
+async function loadVectorData(){
+  try{
+    let data=await api('GET',API+'/vectordb-data?limit=200');
+    let tbody=document.getElementById('vectorBody');
+    if(!data||data.length===0){
+      tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#999;padding:32px">ChromaDB 中暂无数据</td></tr>';
+      return;
+    }
+    tbody.innerHTML=data.map(d=>{
+      let kid=d.knowledgeId||d.metadata&&d.metadata.knowledgeId||'-';
+      let title=d.title||d.metadata&&d.metadata.title||'-';
+      let cidx=d.chunkIndex||d.metadata&&d.metadata.chunkIndex||'-';
+      let cc=d.chunkCount||d.metadata&&d.metadata.chunkCount||'-';
+      return '<tr><td style="font-family:monospace;font-size:12px">'+esc(d.id||'')+'</td><td>'+kid+'</td><td>'+esc(title)+'</td><td>'+cidx+'/'+cc+'</td><td style="font-size:13px;max-width:400px;word-break:break-all">'+esc(d.document||'')+'</td></tr>';
+    }).join('');
+  }catch(e){toast('加载向量数据失败: '+e.message,'error')}
+}
+</script>
+</body>
+</html>
