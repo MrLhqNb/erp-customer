@@ -17,8 +17,8 @@ server:
 # Embedding (Python 本地服务)
 embedding:
   base-url: http://localhost:8092
-  model: all-MiniLM-L6-v2
-  dimension: 384
+  model: BAAI/bge-small-zh-v1.5
+  dimension: 512
 
 # LLM Chat API (DeepSeek / OpenAI-compatible)
 llm:
